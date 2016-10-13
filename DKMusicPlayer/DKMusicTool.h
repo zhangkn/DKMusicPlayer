@@ -7,7 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
-@class DKMusicModel;
+@class DKMusicModel,AVAudioPlayer;
 @interface DKMusicTool : NSObject
 
 /**
@@ -23,7 +23,6 @@
 + (DKMusicModel*)nextPlayingMusic;
 /** 上一首*/
 + (DKMusicModel*)forwardPlayingMusic;
-
 
 
 

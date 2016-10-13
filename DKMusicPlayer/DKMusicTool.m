@@ -9,12 +9,17 @@
 #import "DKMusicTool.h"
 #import "DKMusicModel.h"
 #import "MJExtension.h"
+#import <AVFoundation/AVFoundation.h>
 
 @implementation DKMusicTool
 
 static  NSMutableArray *_musicList;
 
 static  DKMusicModel *_playingMusic;
+
+
+
+
 
 
 +(void)initialize{
@@ -86,6 +91,9 @@ static  DKMusicModel *_playingMusic;
     return tmp;
     
 }
+
+
+
 
 
 @end

@@ -13,6 +13,15 @@
 
 
 static NSMutableDictionary *_inSystemSoundIDs;
+static NSMutableDictionary *_players;
+
++ (NSMutableDictionary *)players
+{
+    if (!_players) {
+        _players = [NSMutableDictionary dictionary];
+    }
+    return _players;
+}
 
 + (void)initialize{
     if (_inSystemSoundIDs == nil) {
@@ -66,5 +75,99 @@ static NSMutableDictionary *_inSystemSoundIDs;
 }
 
 
+
+// 根据音乐文件名称播放音乐
++ (AVAudioPlayer *)playMusicWithFilename:(NSString  *)filename
+{
+    // 0.判断文件名是否为nil
+    if (filename == nil) {
+        return nil;
+    }
+    
+    // 1.从字典中取出播放器
+    AVAudioPlayer *player = [self players][filename];
+    
+    // 2.判断播放器是否为nil
+    if (!player) {
+        NSLog(@"创建新的播放器");
+        
+        // 2.1根据文件名称加载音效URL
+        NSURL *url = [[NSBundle mainBundle] URLForResource:filename withExtension:nil];
+        
+        // 2.2判断url是否为nil
+        if (!url) {
+            return nil;
+        }
+        
+        // 2.3创建播放器
+        player = [[AVAudioPlayer alloc] initWithContentsOfURL:url error:nil];
+        
+        // 2.4准备播放
+        if(![player prepareToPlay])
+        {
+            return nil;
+        }
+        // 允许快进
+        player.enableRate = YES;
+        player.rate = 1;
+        
+        // 2.5将播放器添加到字典中
+        [self players][filename] = player;
+        
+    }
+    // 3.播放音乐
+    if (!player.playing)
+    {
+        [player play];
+    }
+    
+    return player;
+}
+
+// 根据音乐文件名称暂停音乐
++ (void)pauseMusicWithFilename:(NSString  *)filename
+{
+    // 0.判断文件名是否为nil
+    if (filename == nil) {
+        return;
+    }
+    
+    // 1.从字典中取出播放器
+    AVAudioPlayer *player = [self players][filename];
+    
+    // 2.判断播放器是否存在
+    if(player)
+    {
+        // 2.1判断是否正在播放
+        if (player.playing)
+        {
+            // 暂停
+            [player pause];
+        }
+    }
+    
+}
+
+// 根据音乐文件名称停止音乐
++ (void)stopMusicWithFilename:(NSString  *)filename
+{
+    // 0.判断文件名是否为nil
+    if (filename == nil) {
+        return;
+    }
+    
+    // 1.从字典中取出播放器
+    AVAudioPlayer *player = [self players][filename];
+    
+    // 2.判断播放器是否为nil
+    if (player) {
+        // 2.1停止播放
+        [player stop];
+        // 2.2清空播放器
+        //        player = nil;
+        // 2.3从字典中移除播放器
+        [[self players] removeObjectForKey:filename];
+    }
+}
 
 @end

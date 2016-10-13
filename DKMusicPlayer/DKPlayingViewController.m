@@ -12,41 +12,197 @@
 #import "DKMusicTool.h"
 
 #import "DKAudioTool.h"
+#import <AVFoundation/AVFoundation.h>
 
 @interface DKPlayingViewController ()
+@property (weak, nonatomic) IBOutlet UILabel *nameLabel;
+@property (weak, nonatomic) IBOutlet UILabel *sinngerNameLabel;
+@property (weak, nonatomic) IBOutlet UIImageView *coverImageView;
+@property (weak, nonatomic) IBOutlet UILabel *totalTimeLabel;
+/** 滑块*/
+@property (weak, nonatomic) IBOutlet UIButton *slider;
+/** 进度条 */
+@property (weak, nonatomic) IBOutlet UIView *progressView;
+/** 显示拖拽进度*/
+@property (weak, nonatomic) IBOutlet UIButton *showProgressButton;
+
+
+
+
+@property (strong, nonatomic)  DKMusicModel *currentPlayingMusic;
+
+/** 当前的播放器*/
+@property (strong, nonatomic)  AVAudioPlayer *audioPlayer;
+/** 定时器，用于时时监听进度 */
+@property (strong, nonatomic)  NSTimer  *timer;
+
 
 @end
 
 @implementation DKPlayingViewController
 
+#define DKAnimateWithDuration 2.0
+#define DkKeyWindow [UIApplication sharedApplication].keyWindow
+
+- (IBAction)hide:(id)sender {
+    [DkKeyWindow setUserInteractionEnabled:NO];
+    [UIView animateWithDuration:DKAnimateWithDuration animations:^{
+        self.view.y = self.view.height;
+    } completion:^(BOOL finished) {
+        self.view.hidden = YES;
+        [DkKeyWindow setUserInteractionEnabled:YES];
+        [self removeProgressTimer];
+    }];
+
+    
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
-    // Do any additional setup after loading the view from its nib.
+    //
 }
 
 - (void)showVC{
-    UIWindow *window = [UIApplication sharedApplication].keyWindow;
-    self.view.frame = window.bounds;
-    [window addSubview:self.view];
-    //执行动画，让view从底部出来
+    //禁用交互
+    [DkKeyWindow setUserInteractionEnabled:NO];
+    self.view.frame = DkKeyWindow.bounds;
+    [DkKeyWindow addSubview:self.view];
+    //判断是否切歌
+    if(![self.currentPlayingMusic isEqual:[DKMusicTool playingMusic]]){
+        [self setupProgressViewsWith:0.0];
+        [self setupData];//更新数据
+        [self removeProgressTimer];
+        //停止当前的歌曲
+        [DKAudioTool stopMusicWithFilename:self.currentPlayingMusic.filename];
+        [self showVCWithCompletionBlock:^{
+            //播放歌曲
+            [DkKeyWindow setUserInteractionEnabled:YES];
+            self.currentPlayingMusic = [DKMusicTool playingMusic];
+            [self playingMusic:self.currentPlayingMusic];
+            [self addProgressTimer];// 今天进度
+        }];
+        return;
+    }
+    [self showVCWithCompletionBlock:^{
+        [self addProgressTimer];//监听进度
+        [DkKeyWindow setUserInteractionEnabled:YES];
+    }];
+   
+}
+/**     //执行动画，让view从底部出来
+ completionBlock 动画结束执行的代码
+ */
+- (void)showVCWithCompletionBlock:(void (^)())completionBlock{
     self.view.y = self.view.height;
-    [UIView animateWithDuration:2.0 animations:^{
+    self.view.hidden = NO;
+    [UIView animateWithDuration:DKAnimateWithDuration animations:^{
         self.view.y = 0;
     } completion:^(BOOL finished) {
-        //播放歌曲
-        [self playingMusic:[DKMusicTool playingMusic]];        
+        if (completionBlock) {
+            completionBlock();
+        }
     }];
 }
 
-- (void)playingMusic:(DKMusicModel*)model{
-    [DKAudioTool playAudioWithFileName:model.filename];
-//    [DKAudioTool playAudioWithFileName:@"buyao.wav"];
+- (void)setupData{
+    DKMusicModel *model =  [DKMusicTool playingMusic] ;
+    self.nameLabel.text =model.name;
+    self.sinngerNameLabel.text = model.singer;
+    self.coverImageView.image = [UIImage imageNamed:model.icon];
+    
+}
 
+- (void)playingMusic:(DKMusicModel*)model{
+    self.audioPlayer = [DKAudioTool playMusicWithFilename:model.filename];
+    //设置总时长
+    self.totalTimeLabel.text = [self timeStringWithTimeInterval:self.audioPlayer.duration];
+
+}
+
+- (NSString*)timeStringWithTimeInterval:(NSTimeInterval)timeInterval{
+    return [NSString stringWithFormat:@"%d:%d",(int)timeInterval/60,((int)timeInterval%60)];
 }
 
 - (void)didReceiveMemoryWarning{
     [super didReceiveMemoryWarning];
-    [DKAudioTool audioServicesDisposeWithFileName:[DKMusicTool playingMusic].filename];
+    [DKAudioTool stopMusicWithFilename:self.currentPlayingMusic.filename];
+    self.audioPlayer = nil;
 }
+
+#pragma mark - 进度条控制相关方法
+
+-(void)addProgressTimer{
+    if (![self.audioPlayer isPlaying]) {
+        return;
+    }
+    self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updatepPlayingMusicProgress) userInfo:nil repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:self.timer forMode:NSRunLoopCommonModes];
+}
+
+-(void)removeProgressTimer{
+    [self.timer invalidate];
+    self.timer = nil;
+}
+
+-(void)updatepPlayingMusicProgress{
+    //更新进度
+    double currentProfress = self.audioPlayer.currentTime/self.audioPlayer.duration;
+    [self setupProgressViewsWith:currentProfress];
+}
+
+#define DKSliderMaxX self.view.width - self.slider.width
+
+- (void)setupProgressViewsWith:(double)currentProfress{
+    //显示数据到界面
+    //修改控件frame
+    //滑块移动的最大距离
+    CGFloat sliderMaxX = DKSliderMaxX;
+    self.slider.x = sliderMaxX*currentProfress;
+    self.progressView.width = self.slider.center.x;
+    NSString *currentProfressString;
+    if (currentProfress == 0.0) {
+        currentProfressString = @"0:0";
+    }else{
+        currentProfressString = [self timeStringWithTimeInterval:self.audioPlayer.currentTime];
+    }
+    [self.slider setTitle:currentProfressString forState:UIControlStateNormal];
+    
+    //如果 currentProfress = 1.0 ，进行播放下一曲
+}
+/** 进度条拖动*/
+- (IBAction)tapProgressTapGestureRecognizer:(UIPanGestureRecognizer *)sender {
+    //获取点击的point
+    CGPoint point = [sender locationInView:sender.view];
+    //1.计算点击的进度
+    CGFloat sliderMaxX = DKSliderMaxX;
+    double currentProfress = point.x/sliderMaxX;
+    if (currentProfress>1.0) {
+        currentProfress =1.0;
+    }
+    [self setupProgressViewsWith:currentProfress];
+    self.audioPlayer.currentTime  = currentProfress*self.audioPlayer.duration;
+    
+    // 2.设置显示进度的方块的frame
+    NSString *currentProfressString = self.slider.currentTitle;
+    [self.showProgressButton setTitle:currentProfressString forState:UIControlStateNormal];
+    self.showProgressButton.x = self.slider.x;
+    self.showProgressButton.y = self.showProgressButton.superview.height - self.showProgressButton.height - 10;
+    // 3.判断当前的state状态
+    // 如果是开始拖拽就停止定时器, 如果结束拖拽就开启定时器
+    if (sender.state == UIGestureRecognizerStateBegan) {
+        self.showProgressButton.hidden = NO;        // 显示进度的方块
+        // 开始拖拽
+        NSLog(@"开始拖拽, 停止定时器");
+        [self removeProgressTimer];
+    }else if (sender.state == UIGestureRecognizerStateEnded){
+        // 结束拖拽
+        self.showProgressButton.hidden = YES;
+        if (self.audioPlayer.playing) {
+            NSLog(@"结束拖拽, 开启定时器");
+            [self addProgressTimer];
+        }
+    }
+}
+
 
 @end
