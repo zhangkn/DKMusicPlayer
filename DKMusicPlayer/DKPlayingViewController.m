@@ -59,7 +59,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    //
+    self.showProgressButton.layer.cornerRadius =8;
 }
 
 - (void)showVC{
@@ -163,31 +163,36 @@
     if (currentProfress == 0.0) {
         currentProfressString = @"0:0";
     }else{
-        currentProfressString = [self timeStringWithTimeInterval:self.audioPlayer.currentTime];
+        currentProfressString = [self timeStringWithTimeInterval:self.audioPlayer.duration*currentProfress];
     }
     [self.slider setTitle:currentProfressString forState:UIControlStateNormal];
     
     //如果 currentProfress = 1.0 ，进行播放下一曲
 }
 /** 进度条拖动*/
-- (IBAction)tapProgressTapGestureRecognizer:(UIPanGestureRecognizer *)sender {
+- (IBAction)tapProgressView:(UITapGestureRecognizer *)sender {
+    CGPoint point = [sender locationInView:sender.view];// sender.view = self.bankgroundView
+    CGFloat sliderMaxX = DKSliderMaxX;
+    double currentProfress = (point.x)/sliderMaxX;
+    self.audioPlayer.currentTime = currentProfress * self.audioPlayer.duration;
+    [self setupProgressViewsWith:currentProfress];
+}
+
+
+
+// 监听滑块拖拽事件
+- (IBAction)panProgressButton:(UIPanGestureRecognizer *)sender {
     //获取点击的point
-    CGPoint point = [sender locationInView:sender.view];
+    CGPoint point = [sender translationInView:sender.view];// sender.view = self.slider  获取平移的位置
+    [sender setTranslation:CGPointZero inView:sender.view];
     //1.计算点击的进度
     CGFloat sliderMaxX = DKSliderMaxX;
-    double currentProfress = point.x/sliderMaxX;
+    double currentProfress = (self.slider.x+point.x)/sliderMaxX;
     if (currentProfress>1.0) {
         currentProfress =1.0;
     }
     [self setupProgressViewsWith:currentProfress];
-    self.audioPlayer.currentTime  = currentProfress*self.audioPlayer.duration;
-    
-    // 2.设置显示进度的方块的frame
-    NSString *currentProfressString = self.slider.currentTitle;
-    [self.showProgressButton setTitle:currentProfressString forState:UIControlStateNormal];
-    self.showProgressButton.x = self.slider.x;
-    self.showProgressButton.y = self.showProgressButton.superview.height - self.showProgressButton.height - 10;
-    // 3.判断当前的state状态
+       // 3.判断当前的state状态
     // 如果是开始拖拽就停止定时器, 如果结束拖拽就开启定时器
     if (sender.state == UIGestureRecognizerStateBegan) {
         self.showProgressButton.hidden = NO;        // 显示进度的方块
@@ -197,11 +202,19 @@
     }else if (sender.state == UIGestureRecognizerStateEnded){
         // 结束拖拽
         self.showProgressButton.hidden = YES;
+        self.audioPlayer.currentTime  = currentProfress*self.audioPlayer.duration;// 决定滑块的标题显示的进度
         if (self.audioPlayer.playing) {
             NSLog(@"结束拖拽, 开启定时器");
             [self addProgressTimer];
         }
+    }else if(sender.state == UIGestureRecognizerStateChanged){
+        // 2.设置显示进度的方块的frame
+        NSString *currentProfressString = self.slider.currentTitle;
+        [self.showProgressButton setTitle:currentProfressString forState:UIControlStateNormal];
+        self.showProgressButton.x = self.slider.x;
+        self.showProgressButton.y = self.showProgressButton.superview.height - self.showProgressButton.height - 10;
     }
+    
 }
 
 
