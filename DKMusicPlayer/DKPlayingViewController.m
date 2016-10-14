@@ -14,7 +14,7 @@
 #import "DKAudioTool.h"
 #import <AVFoundation/AVFoundation.h>
 
-@interface DKPlayingViewController ()
+@interface DKPlayingViewController ()<AVAudioPlayerDelegate>
 @property (weak, nonatomic) IBOutlet UILabel *nameLabel;
 @property (weak, nonatomic) IBOutlet UILabel *sinngerNameLabel;
 @property (weak, nonatomic) IBOutlet UIImageView *coverImageView;
@@ -25,6 +25,7 @@
 @property (weak, nonatomic) IBOutlet UIView *progressView;
 /** 显示拖拽进度*/
 @property (weak, nonatomic) IBOutlet UIButton *showProgressButton;
+@property (weak, nonatomic) IBOutlet UIButton *pauseMusicButton;
 
 
 
@@ -57,9 +58,18 @@
     
 }
 
+- (void)setAudioPlayer:(AVAudioPlayer *)audioPlayer{
+    _audioPlayer = audioPlayer;
+    audioPlayer.delegate = self;
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.showProgressButton.layer.cornerRadius =8;
+    [self.pauseMusicButton setImage:[UIImage imageNamed:@"pause"] forState:UIControlStateNormal];
+    [self.pauseMusicButton setImage:[UIImage imageNamed:@"play"] forState:UIControlStateSelected];
+
+    
 }
 
 - (void)showVC{
@@ -69,11 +79,8 @@
     [DkKeyWindow addSubview:self.view];
     //判断是否切歌
     if(![self.currentPlayingMusic isEqual:[DKMusicTool playingMusic]]){
-        [self setupProgressViewsWith:0.0];
-        [self setupData];//更新数据
+        [self resetParasForchangeMusic:nil];
         [self removeProgressTimer];
-        //停止当前的歌曲
-        [DKAudioTool stopMusicWithFilename:self.currentPlayingMusic.filename];
         [self showVCWithCompletionBlock:^{
             //播放歌曲
             [DkKeyWindow setUserInteractionEnabled:YES];
@@ -89,6 +96,20 @@
     }];
    
 }
+
+- (void)resetParasForchangeMusic:(void(^)())playblock{
+    //停止当前的歌曲
+    [DKAudioTool stopMusicWithFilename:self.currentPlayingMusic.filename];
+    if (playblock) {
+        playblock();
+    }
+    [self setupProgressViewsWith:0.0];
+    [self setupData];//更新数据
+    //切换播放状态
+    self.pauseMusicButton.selected = NO;//正在播放状态
+  
+}
+
 /**     //执行动画，让view从底部出来
  completionBlock 动画结束执行的代码
  */
@@ -146,6 +167,9 @@
 
 -(void)updatepPlayingMusicProgress{
     //更新进度
+    if (![self.audioPlayer isPlaying]) {
+        return;
+    }
     double currentProfress = self.audioPlayer.currentTime/self.audioPlayer.duration;
     [self setupProgressViewsWith:currentProfress];
 }
@@ -167,8 +191,16 @@
     }
     [self.slider setTitle:currentProfressString forState:UIControlStateNormal];
     
-    //如果 currentProfress = 1.0 ，进行播放下一曲
 }
+
+#pragma mark - AVAudioPlayerDelegate
+/** 设置播放模式*/
+- (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag{
+    [self nextMusic:nil];
+}
+
+
+
 /** 进度条拖动*/
 - (IBAction)tapProgressView:(UITapGestureRecognizer *)sender {
     CGPoint point = [sender locationInView:sender.view];// sender.view = self.bankgroundView
@@ -190,6 +222,8 @@
     double currentProfress = (self.slider.x+point.x)/sliderMaxX;
     if (currentProfress>1.0) {
         currentProfress =1.0;
+    }else if(currentProfress<0){
+        currentProfress = 0;
     }
     [self setupProgressViewsWith:currentProfress];
        // 3.判断当前的state状态
@@ -216,6 +250,45 @@
     }
     
 }
+
+#pragma mark - 播放相关方法
+
+- (IBAction)pauseMusic:(UIButton *)sender {
+    //修改对应的状态
+    sender.selected = !sender.selected;
+    if (sender.selected) {
+        [DKAudioTool pauseMusicWithFilename:[DKMusicTool playingMusic].filename];
+        [self removeProgressTimer];
+        return;
+    }
+    //继续播放
+    double currentProfress = self.audioPlayer.currentTime/self.audioPlayer.duration;
+    [self setupProgressViewsWith:currentProfress];
+    self.audioPlayer= [DKAudioTool playMusicWithFilename:self.currentPlayingMusic.filename];
+    [self addProgressTimer];
+}
+#define weakSelf(weakSelf)  __weak __typeof(&*self)weakSelf = self;
+
+- (IBAction)nextMusic:(UIButton *)sender {
+    weakSelf(weakSelf);
+    [self resetParasForchangeMusic:^{
+        [weakSelf setupChangeMusic:[DKMusicTool nextPlayingMusic]];
+    }];
+    
+}
+- (IBAction)previousMusic:(UIButton *)sender {
+    weakSelf(weakSelf);
+    [self resetParasForchangeMusic:^{
+        [weakSelf setupChangeMusic:[DKMusicTool forwardPlayingMusic]];
+    }];
+}
+
+- (void)setupChangeMusic:(DKMusicModel*)music{
+    self.currentPlayingMusic = music;
+    self.audioPlayer= [DKAudioTool playMusicWithFilename:self.currentPlayingMusic.filename];
+    [DKMusicTool setPlayingMusic:self.currentPlayingMusic];
+}
+
 
 
 @end

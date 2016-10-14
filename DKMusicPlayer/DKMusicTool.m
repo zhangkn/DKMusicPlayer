@@ -29,6 +29,13 @@ static  DKMusicModel *_playingMusic;
         _musicList = [self musicList];
     });
     
+    //创建音频会话
+    AVAudioSession *session = [[AVAudioSession alloc]init];
+    //设置会话类型
+    [session setCategory:AVAudioSessionCategoryPlayback error:nil];
+    //激活会话
+    [session setActive:YES error:nil];
+    
     
 }
 
@@ -66,7 +73,8 @@ static  DKMusicModel *_playingMusic;
     }else{
         currentIndex =  [_musicList indexOfObject:_playingMusic];
     }
-    NSUInteger nextIndex = currentIndex++;
+    NSUInteger nextIndex = currentIndex+1;
+    
     if (nextIndex >= _musicList.count) {
          nextIndex = 0;// 返回第一首
     }
@@ -85,7 +93,7 @@ static  DKMusicModel *_playingMusic;
     if (currentIndex == 0) {
         preIndex = _musicList.count-1;// 返回最后一首
     }else{
-        preIndex = currentIndex--;
+        preIndex = currentIndex-1;
     }
     DKMusicModel *tmp  = [_musicList objectAtIndex:preIndex];
     return tmp;

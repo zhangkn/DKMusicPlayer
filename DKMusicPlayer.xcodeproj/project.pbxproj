@@ -413,6 +413,11 @@
 						CreatedOnToolsVersion = 8.0;
 						DevelopmentTeam = FUV5KWMMAV;
 						ProvisioningStyle = Automatic;
+						SystemCapabilities = {
+							com.apple.BackgroundModes = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -661,6 +666,7 @@
 				E1700D4D1DAE2718007015D8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
