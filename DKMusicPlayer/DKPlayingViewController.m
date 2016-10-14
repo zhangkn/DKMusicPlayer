@@ -197,7 +197,16 @@
 /** 设置播放模式*/
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag{
     [self nextMusic:nil];
+    
 }
+/* audioPlayerBeginInterruption: is called when the audio session has been interrupted while the player was playing. The player will have been paused. */
+- (void)audioPlayerBeginInterruption:(AVAudioPlayer *)player NS_DEPRECATED_IOS(2_2, 8_0){
+    [self pauseMusic:self.pauseMusicButton];
+}
+- (void)audioPlayerEndInterruption:(AVAudioPlayer *)player withOptions:(NSUInteger)flags NS_DEPRECATED_IOS(6_0, 8_0){
+    [self pauseMusic:self.pauseMusicButton];
+}
+
 
 
 
